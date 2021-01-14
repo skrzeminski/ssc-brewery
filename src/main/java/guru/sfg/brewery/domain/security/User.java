@@ -2,24 +2,27 @@ package guru.sfg.brewery.domain.security;
 
 import guru.sfg.brewery.domain.Customer;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.persistence.*;
+import java.sql.Timestamp;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Created by jt on 6/21/20.
  */
-@Entity
 @Setter
 @Getter
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
+@Entity
 public class User implements UserDetails, CredentialsContainer {
 
     @Id
@@ -29,9 +32,6 @@ public class User implements UserDetails, CredentialsContainer {
     private String username;
     private String password;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    private Customer customer;
-
     @Singular
     @ManyToMany(cascade = {CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinTable(name = "user_role",
@@ -39,27 +39,19 @@ public class User implements UserDetails, CredentialsContainer {
             inverseJoinColumns = {@JoinColumn(name = "ROLE_ID", referencedColumnName = "ID")})
     private Set<Role> roles;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    private Customer customer;
+
     @Transient
     public Set<GrantedAuthority> getAuthorities() {
         return this.roles.stream()
                 .map(Role::getAuthorities)
                 .flatMap(Set::stream)
-                .map(auth -> new SimpleGrantedAuthority(auth.getPermission()))
+                .map(authority -> {
+                    return new SimpleGrantedAuthority(authority.getPermission());
+                })
                 .collect(Collectors.toSet());
     }
-
-    @Builder.Default
-    private Boolean accountNonExpired = true;
-
-    @Builder.Default
-    private Boolean accountNonLocked = true;
-
-    @Builder.Default
-    private Boolean credentialsNonExpired = true;
-
-    @Builder.Default
-    private Boolean enabled = true;
-
 
     @Override
     public boolean isAccountNonExpired() {
@@ -81,8 +73,27 @@ public class User implements UserDetails, CredentialsContainer {
         return this.enabled;
     }
 
+    @Builder.Default
+    private Boolean accountNonExpired = true;
+
+    @Builder.Default
+    private Boolean accountNonLocked = true;
+
+    @Builder.Default
+    private Boolean credentialsNonExpired = true;
+
+    @Builder.Default
+    private Boolean enabled = true;
+
     @Override
     public void eraseCredentials() {
         this.password = null;
     }
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private Timestamp createdDate;
+
+    @UpdateTimestamp
+    private Timestamp lastModifiedDate;
 }
